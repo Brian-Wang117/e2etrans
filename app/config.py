@@ -126,13 +126,35 @@ class OutboundSettings:
 
 
 @dataclass(frozen=True)
+class AuthSettings:
+    """Azure AD unified web login via the tp-azure gateway.
+
+    The Azure OAuth flow is handled by ``cluster.tpcnailab.com``; this app
+    only verifies the JWT it signs and keeps a session cookie.
+    """
+
+    enabled: bool = False
+    auth_server: str = "https://cluster.tpcnailab.com"
+    app_name: str = "e2etrans_voice_demo"
+    jwt_secret: str = field(default="", repr=False)
+    session_secret: str = field(default="", repr=False)
+    session_cookie: str = "e2etrans_session"
+    cookie_secure: bool = False
+    frontend_url: str = ""
+
+
+@dataclass(frozen=True)
 class Settings:
     provider_mode: str = "mock"
     host: str = "127.0.0.1"
     port: int = 8765
     database_path: Path = PROJECT_ROOT / "data" / "sessions.db"
+    # External URL prefix this app is served under (e.g. "/v2" when nginx
+    # mounts it at https://obbot.tpcnailab.com/v2). Empty = served at root.
+    base_path: str = ""
     realtime: RealtimeSettings = field(default_factory=RealtimeSettings)
     outbound: OutboundSettings = field(default_factory=OutboundSettings)
+    auth: AuthSettings = field(default_factory=AuthSettings)
 
 
 def _realtime_from_env(default_origins: tuple[str, ...]) -> RealtimeSettings:
@@ -227,6 +249,34 @@ def _outbound_from_env() -> OutboundSettings:
     )
 
 
+def _auth_from_env() -> AuthSettings:
+    enabled = _env_bool("ENABLE_UNIFIED_AUTH", False)
+    auth_server = (
+        os.getenv("AUTH_SERVER", "https://cluster.tpcnailab.com").strip().rstrip("/")
+    )
+    app_name = os.getenv("APP_NAME", "e2etrans_voice_demo").strip()
+    jwt_secret = os.getenv("AZURE_JWT_SECRET", "")
+    session_secret = os.getenv("SESSION_SECRET_KEY", "")
+    if enabled:
+        if not jwt_secret:
+            raise ValueError("AZURE_JWT_SECRET is required when ENABLE_UNIFIED_AUTH is true")
+        if not session_secret:
+            raise ValueError("SESSION_SECRET_KEY is required when ENABLE_UNIFIED_AUTH is true")
+        if not app_name:
+            raise ValueError("APP_NAME must not be empty when ENABLE_UNIFIED_AUTH is true")
+    return AuthSettings(
+        enabled=enabled,
+        auth_server=auth_server,
+        app_name=app_name,
+        jwt_secret=jwt_secret,
+        session_secret=session_secret,
+        session_cookie=os.getenv("AUTH_SESSION_COOKIE", "e2etrans_session").strip()
+        or "e2etrans_session",
+        cookie_secure=_env_bool("AUTH_COOKIE_SECURE", False),
+        frontend_url=os.getenv("FRONTEND_URL", "").strip().rstrip("/"),
+    )
+
+
 def settings_from_env() -> Settings:
     load_env_file()
     provider_mode = os.getenv("PROVIDER_MODE", "mock").strip().lower()
@@ -234,6 +284,11 @@ def settings_from_env() -> Settings:
         raise ValueError("PROVIDER_MODE must be 'mock' or 'ark'")
     host = os.getenv("HOST", "127.0.0.1").strip() or "127.0.0.1"
     port = _env_int("PORT", 8765)
+    base_path = os.getenv("BASE_PATH", "").strip()
+    if base_path:
+        if not base_path.startswith("/"):
+            raise ValueError("BASE_PATH must start with '/'")
+        base_path = base_path.rstrip("/")
     default_origins = (
         f"http://{host}:{port}",
         f"http://localhost:{port}",
@@ -246,6 +301,8 @@ def settings_from_env() -> Settings:
         host=host,
         port=port,
         database_path=Path(os.getenv("DATABASE_PATH", str(data_root / "sessions.db"))),
+        base_path=base_path,
         realtime=_realtime_from_env(default_origins),
         outbound=_outbound_from_env(),
+        auth=_auth_from_env(),
     )

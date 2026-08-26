@@ -117,8 +117,12 @@ function formatDuration(seconds) {
   return `${value}s`;
 }
 
+// External URL prefix when deployed behind one (e.g. nginx /v2); injected
+// into the page by the server. Empty when served at the domain root.
+const APP_BASE = window.APP_BASE || "";
+
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await fetch(APP_BASE + path, {
     headers: options.body instanceof FormData ? {} : { "Content-Type": "application/json" },
     ...options,
   });
@@ -134,7 +138,7 @@ async function api(path, options = {}) {
 function connectWorkbench() {
   clearTimeout(wsReconnectTimer);
   const protocol = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${protocol}://${location.host}/ws/workbench`);
+  ws = new WebSocket(`${protocol}://${location.host}${APP_BASE}/ws/workbench`);
   ws.onopen = () => {
     wsStopped = false;
     els.wsBadge.textContent = "工作台已连接";
@@ -278,7 +282,7 @@ async function onCallConfirmed(remoteStream, message) {
     // Downlink: mirror playback into the SIP send track.
     const phoneStream = audio.enablePhoneOutput();
     client = new RealtimeClient({
-      url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/realtime`,
+      url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${APP_BASE}/ws/realtime`,
       onEvent: onRealtimeEvent,
       onState: (phase) => {
         if (phase === "disconnected" && callActive) sip?.hangup();
@@ -903,7 +907,7 @@ els.exportBtn.addEventListener("click", () => {
   showError("");
   // Plain anchor download: server returns utf-8-sig CSV, Excel opens it cleanly.
   const link = document.createElement("a");
-  link.href = `/api/batches/${encodeURIComponent(batch.id)}/export`;
+  link.href = `${APP_BASE}/api/batches/${encodeURIComponent(batch.id)}/export`;
   link.download = `${batch.id}.csv`;
   document.body.appendChild(link);
   link.click();

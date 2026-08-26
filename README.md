@@ -31,6 +31,7 @@ python run.py
 
 - 真实进程环境变量优先级最高，可覆盖一切。
 - `DOUBAO_MODEL` 留空则不传给豆包（使用服务端默认模型）；`DOUBAO_TTS_SPEAKER` 若不以 `en_` 开头仅记录警告（当前 `.env.test` 为中文音色，如需英文语音请替换为英文音色）。
+- **tp-azure 统一认证（Web 登录）**：`ENABLE_UNIFIED_AUTH=true` 时，所有页面与 `/api/*`（`/api/auth/*` 除外）需登录才能访问；未登录跳转 `/login`，点击「企业账号登录」进入 `AUTH_SERVER/login/APP_NAME`（Azure AD），认证成功后回调 `…/auth/verify?jwt=…` 建立 Session。生产部署在 `https://obbot.tpcnailab.com/v2`（`BASE_PATH=/v2`），需：① 在认证服务器（cluster.tpcnailab.com）注册 `APP_NAME`（当前为 `e2etrans_voice_demo`），回调地址填 `https://obbot.tpcnailab.com/v2/auth/verify`；② `.env` 配好 `AZURE_JWT_SECRET`（与认证服务器约定）、`SESSION_SECRET_KEY`、`WS_ALLOWED_ORIGINS` 含生产域名；③ nginx 将 `/v2/` 剥前缀反代到本机端口（见 `deploy/nginx-v2.conf`）。本地直连调试可临时设 `ENABLE_UNIFIED_AUTH=false`。
 
 ## 使用流程
 

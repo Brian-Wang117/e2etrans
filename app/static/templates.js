@@ -25,8 +25,12 @@ const editorStatus = document.getElementById("editor-status");
 let templates = [];
 let editingId = null; // null = creating
 
+// External URL prefix when deployed behind one (e.g. nginx /v2); injected
+// into the page by the server. Empty when served at the domain root.
+const APP_BASE = window.APP_BASE || "";
+
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await fetch(APP_BASE + path, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });

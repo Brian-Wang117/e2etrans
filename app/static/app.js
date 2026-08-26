@@ -12,6 +12,11 @@ import {
 } from "./realtime-ui-state.js";
 import { base64ToBytes } from "./pcm.js";
 
+// External URL prefix when deployed behind one (e.g. nginx /v2); injected
+// into the page by the server. Empty when served at the domain root.
+const APP_BASE = window.APP_BASE || "";
+const wsScheme = () => (location.protocol === "https:" ? "wss" : "ws");
+
 const $ = (id) => document.getElementById(id);
 
 const els = {
@@ -208,7 +213,7 @@ function turnCard(turn) {
 
 async function checkHealth() {
   try {
-    const response = await fetch("/api/health");
+    const response = await fetch(`${APP_BASE}/api/health`);
     const health = await response.json();
     const realtime = health.realtime_provider === "doubao";
     els.healthBadge.textContent = realtime
@@ -225,7 +230,7 @@ async function checkHealth() {
 }
 
 async function loadScenarios() {
-  const response = await fetch("/api/scenarios");
+  const response = await fetch(`${APP_BASE}/api/scenarios`);
   const data = await response.json();
   for (const scenario of data.scenarios || []) {
     const option = document.createElement("option");
@@ -269,7 +274,7 @@ async function startCall() {
     }
 
     client = new RealtimeClient({
-      url: `ws://${location.host}/ws/realtime`,
+      url: `${wsScheme()}://${location.host}${APP_BASE}/ws/realtime`,
       onEvent: applyEvent,
       onState: (phase) => {
         if (phase === "disconnected" && inCall) {
@@ -473,7 +478,7 @@ async function onPhoneConfirmed(remoteStream) {
     // Downlink: mirror playback into the SIP send track.
     const phoneStream = audio.enablePhoneOutput();
     client = new RealtimeClient({
-      url: `ws://${location.host}/ws/realtime`,
+      url: `${wsScheme()}://${location.host}${APP_BASE}/ws/realtime`,
       onEvent: applyEvent,
       onState: (phase) => {
         if (phase === "disconnected" && inCall) {
@@ -612,7 +617,7 @@ function submitText() {
 // -- review panel ------------------------------------------------------------
 
 async function openReview(sessionId) {
-  const response = await fetch(`/api/sessions/${sessionId}`);
+  const response = await fetch(`${APP_BASE}/api/sessions/${sessionId}`);
   if (!response.ok) return;
   const session = await response.json();
   els.reviewPanel.hidden = false;
@@ -621,7 +626,7 @@ async function openReview(sessionId) {
   for (const turn of session.turns || []) {
     els.reviewTurns.append(reviewTurnCard(turn));
   }
-  els.exportLink.href = `/api/sessions/${session.id}/export`;
+  els.exportLink.href = `${APP_BASE}/api/sessions/${session.id}/export`;
   els.deleteBtn.dataset.sessionId = session.id;
   renderRating(session.rating);
 }
@@ -656,7 +661,7 @@ function renderRating(current) {
     button.className = current === value ? "rating-btn rating-active" : "rating-btn";
     button.addEventListener("click", async () => {
       const sessionId = els.deleteBtn.dataset.sessionId;
-      await fetch(`/api/sessions/${sessionId}/rating?rating=${value}`, {
+      await fetch(`${APP_BASE}/api/sessions/${sessionId}/rating?rating=${value}`, {
         method: "POST",
       });
       renderRating(value);
@@ -668,7 +673,7 @@ function renderRating(current) {
 // -- history -----------------------------------------------------------------
 
 async function refreshHistory() {
-  const response = await fetch("/api/sessions");
+  const response = await fetch(`${APP_BASE}/api/sessions`);
   const data = await response.json();
   els.historyList.textContent = "";
   for (const session of data.sessions || []) {
@@ -714,7 +719,7 @@ els.textInput.addEventListener("keydown", (event) => {
 els.deleteBtn.addEventListener("click", async () => {
   const sessionId = els.deleteBtn.dataset.sessionId;
   if (!sessionId) return;
-  await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
+  await fetch(`${APP_BASE}/api/sessions/${sessionId}`, { method: "DELETE" });
   els.reviewPanel.hidden = true;
   await refreshHistory();
 });

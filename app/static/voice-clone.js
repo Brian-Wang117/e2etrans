@@ -13,8 +13,12 @@ const MIN_SAMPLE_SECONDS = 40;
 const STATUS_POLL_MS = 2000;
 const STATUS_TIMEOUT_MS = 120000;
 
+// External URL prefix when deployed behind one (e.g. nginx /v2); injected
+// into the page by the server. Empty when served at the domain root.
+const APP_BASE = window.APP_BASE || "";
+
 export async function fetchCloneMeta() {
-  const response = await fetch("/api/voice-clone/meta");
+  const response = await fetch(`${APP_BASE}/api/voice-clone/meta`);
   if (!response.ok) throw new Error("音色复刻服务不可用");
   return response.json();
 }
@@ -153,7 +157,7 @@ export async function recordSample({ seconds, onProgress }) {
 export async function uploadClone({ speakerId, name, pcm, store, onStatus }) {
   const audioB64 = pcmToWavBase64(pcm);
   onStatus?.("上传采样音频…");
-  const uploadResponse = await fetch("/api/voice-clone/upload", {
+  const uploadResponse = await fetch(`${APP_BASE}/api/voice-clone/upload`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ speaker_id: speakerId, name, audio_wav_b64: audioB64 }),
@@ -166,7 +170,7 @@ export async function uploadClone({ speakerId, name, pcm, store, onStatus }) {
   onStatus?.("已提交训练，等待音色就绪…");
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, STATUS_POLL_MS));
-    const statusResponse = await fetch("/api/voice-clone/status", {
+    const statusResponse = await fetch(`${APP_BASE}/api/voice-clone/status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ speaker_id: speakerId }),

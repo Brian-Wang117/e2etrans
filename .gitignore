@@ -1,0 +1,17 @@
+# 环境与密钥（绝对不要上传）
+.env
+.env.test
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# 运行数据（通话记录、数据库、音频）
+data/
+
+# 编辑器/系统
+.vscode/
+.idea/
+Thumbs.db

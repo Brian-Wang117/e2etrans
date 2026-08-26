@@ -13,6 +13,7 @@ from fastapi import Body, FastAPI, File, HTTPException, UploadFile, WebSocket
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from app.auth import install_auth
 from app.batch.events import CallEventBus
 from app.batch.hub import WorkbenchHub
 from app.batch.import_parser import (
@@ -761,28 +762,41 @@ def create_app(
     static_app.file_response = no_cache_file_response
     app.mount("/static", static_app, name="static")
 
-    @app.get("/")
-    async def index() -> Response:
+    def _page_response(filename: str) -> Response:
+        html = (static_dir / filename).read_text(encoding="utf-8")
+        if settings.base_path:
+            # Served under a URL prefix (e.g. nginx /v2): tell the JS where
+            # API/WebSocket routes live after the prefix is stripped upstream.
+            html = html.replace(
+                "</head>",
+                f'<script>window.APP_BASE="{settings.base_path}";</script></head>',
+                1,
+            )
         return Response(
-            content=(static_dir / "index.html").read_text(encoding="utf-8"),
+            content=html,
             media_type="text/html; charset=utf-8",
             headers={"Cache-Control": "no-store"},
         )
+
+    @app.get("/")
+    async def index() -> Response:
+        return _page_response("index.html")
 
     @app.get("/workbench")
     async def workbench_page() -> Response:
-        return Response(
-            content=(static_dir / "workbench.html").read_text(encoding="utf-8"),
-            media_type="text/html; charset=utf-8",
-            headers={"Cache-Control": "no-store"},
-        )
+        return _page_response("workbench.html")
 
     @app.get("/templates")
     async def templates_page() -> Response:
-        return Response(
-            content=(static_dir / "templates.html").read_text(encoding="utf-8"),
-            media_type="text/html; charset=utf-8",
-            headers={"Cache-Control": "no-store"},
+        return _page_response("templates.html")
+
+    if settings.auth.enabled:
+        install_auth(
+            app,
+            settings.auth,
+            settings.base_path,
+            static_dir,
+            fallback_frontend_url=f"http://{settings.host}:{settings.port}",
         )
 
     return app
