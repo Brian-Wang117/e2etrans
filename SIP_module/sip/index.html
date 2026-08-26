@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音软电话 - SIP Softphone</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="phone-container">
+        <!-- 头部：品牌与状态 -->
+        <header class="phone-header">
+            <div class="brand">
+                <span class="brand-icon">📞</span>
+                <span class="brand-name">CloudPhone</span>
+            </div>
+            <div class="connection-status">
+                <span id="statusDot" class="status-dot disconnected"></span>
+                <span id="statusText" class="status-text">未连接</span>
+            </div>
+        </header>
+
+        <!-- SIP 配置面板 -->
+        <section id="configPanel" class="config-panel">
+            <h3 class="panel-title">SIP 账户设置</h3>
+            <div class="form-group">
+                <label for="sipServer">SIP 服务器</label>
+                <input type="text" id="sipServer" placeholder="例如: sip.example.com" value="sip.example.com">
+            </div>
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="sipPort">端口</label>
+                    <input type="number" id="sipPort" value="5060" min="1" max="65535">
+                </div>
+                <div class="form-group half">
+                    <label for="sipTransport">传输协议</label>
+                    <select id="sipTransport">
+                        <option value="ws">WebSocket (ws)</option>
+                        <option value="wss" selected>Secure WebSocket (wss)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="enableProcessing">
+                    <span>启用媒体流翻译管线（中⇄英）</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label for="sipUser">用户名 / SIP URI</label>
+                <input type="text" id="sipUser" placeholder="例如: 1000@example.com" value="1000">
+            </div>
+            <div class="form-group">
+                <label for="sipDomain">域名 / 域</label>
+                <input type="text" id="sipDomain" placeholder="例如: example.com" value="example.com">
+            </div>
+            <div class="form-group">
+                <label for="sipPassword">密码</label>
+                <input type="password" id="sipPassword" placeholder="SIP 密码" value="">
+            </div>
+            <div class="form-actions">
+                <button id="btnRegister" class="btn btn-primary">注册</button>
+                <button id="btnUnregister" class="btn btn-secondary" disabled>注销</button>
+            </div>
+        </section>
+
+        <!-- 主通话面板 -->
+        <section id="callPanel" class="call-panel" style="display: none;">
+            <!-- 通话信息栏 -->
+            <div class="call-info">
+                <div class="caller-info">
+                    <div class="avatar" id="callerAvatar">?</div>
+                    <div class="caller-details">
+                        <div id="callerName" class="caller-name">未知来电</div>
+                        <div id="callerNumber" class="caller-number">—</div>
+                    </div>
+                </div>
+                <div class="call-duration">
+                    <div id="callStatus" class="call-status">通话中</div>
+                    <div id="callTimer" class="call-timer">00:00</div>
+                </div>
+            </div>
+
+            <!-- 来电接听提示 -->
+            <div id="incomingCallPanel" class="incoming-call" style="display: none;">
+                <div class="incoming-text">
+                    <div class="incoming-title">📞 来电</div>
+                    <div id="incomingNumber" class="incoming-number">—</div>
+                </div>
+                <div class="incoming-actions">
+                    <button id="btnReject" class="btn btn-reject">
+                        <span class="btn-icon">✕</span>
+                        <span>拒接</span>
+                    </button>
+                    <button id="btnAnswer" class="btn btn-answer">
+                        <span class="btn-icon">📞</span>
+                        <span>接听</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 通话控制按钮 -->
+            <div id="callControls" class="call-controls" style="display: none;">
+                <button id="btnMute" class="control-btn" title="静音">
+                    <span class="ctrl-icon">🔇</span>
+                    <span class="ctrl-label">静音</span>
+                </button>
+                <button id="btnSpeaker" class="control-btn" title="免提">
+                    <span class="ctrl-icon">🔊</span>
+                    <span class="ctrl-label">免提</span>
+                </button>
+                <button id="btnKeypad" class="control-btn" title="键盘">
+                    <span class="ctrl-icon">⌨️</span>
+                    <span class="ctrl-label">键盘</span>
+                </button>
+                <button id="btnTransfer" class="control-btn" title="转接">
+                    <span class="ctrl-icon">🔀</span>
+                    <span class="ctrl-label">转接</span>
+                </button>
+            </div>
+
+            <!-- 拨号键盘 -->
+            <div id="keypadPanel" class="keypad-panel" style="display: none;">
+                <div class="dial-input-row">
+                    <input type="text" id="dialNumber" class="dial-input" placeholder="输入号码" readonly>
+                    <button id="btnClear" class="btn-clear" title="清空">⌫</button>
+                </div>
+                <div class="keypad-grid">
+                    <button class="key" data-key="1"><span>1</span><small>&nbsp;</small></button>
+                    <button class="key" data-key="2"><span>2</span><small>ABC</small></button>
+                    <button class="key" data-key="3"><span>3</span><small>DEF</small></button>
+                    <button class="key" data-key="4"><span>4</span><small>GHI</small></button>
+                    <button class="key" data-key="5"><span>5</span><small>JKL</small></button>
+                    <button class="key" data-key="6"><span>6</span><small>MNO</small></button>
+                    <button class="key" data-key="7"><span>7</span><small>PQRS</small></button>
+                    <button class="key" data-key="8"><span>8</span><small>TUV</small></button>
+                    <button class="key" data-key="9"><span>9</span><small>WXYZ</small></button>
+                    <button class="key" data-key="*"><span>*</span><small>&nbsp;</small></button>
+                    <button class="key" data-key="0"><span>0</span><small>+</small></button>
+                    <button class="key" data-key="#"><span>#</span><small>&nbsp;</small></button>
+                </div>
+                <div class="dial-actions">
+                    <button id="btnDial" class="btn btn-dial">
+                        <span class="btn-icon">📞</span>
+                        <span>拨打</span>
+                    </button>
+                    <button id="btnHangup" class="btn btn-hangup">
+                        <span class="btn-icon">📞</span>
+                        <span>挂断</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 转接面板 -->
+            <div id="transferPanel" class="transfer-panel" style="display: none;">
+                <label for="transferNumber">转接至：</label>
+                <div class="transfer-row">
+                    <input type="text" id="transferNumber" placeholder="输入转接号码">
+                    <button id="btnTransferConfirm" class="btn btn-primary">确认转接</button>
+                    <button id="btnTransferCancel" class="btn btn-secondary">取消</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 通话记录 -->
+        <section id="historyPanel" class="history-panel" style="display: none;">
+            <div class="history-header">
+                <h3 class="panel-title">通话记录</h3>
+                <button id="btnClearHistory" class="btn-clear-history">清空</button>
+            </div>
+            <div id="historyList" class="history-list">
+                <!-- 动态填充 -->
+            </div>
+        </section>
+
+        <!-- 脚注 -->
+        <footer class="phone-footer">
+            <span>Powered by JSSIP & WebRTC</span>
+        </footer>
+    </div>
+
+    <!-- JSSIP 第三方库 (v3.10.0) -->
+    <script src="js/jssip-3.10.0.min.js"
+            onerror="alert('JsSIP 库加载失败，请检查网络连接')"></script>
+    <script src="js/softphone.js"></script>
+</body>
+</html>

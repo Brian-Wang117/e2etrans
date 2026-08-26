@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>豆包端到端语音 Demo</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/static/styles.css?v=5" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>豆包端到端语音 Demo</h1>
+    <span id="health-badge" class="badge">检测中…</span>
+  </header>
+
+  <main class="layout">
+    <!-- 通话面板 -->
+    <section class="panel call-panel">
+      <div class="mode-tabs">
+        <button id="mode-web" type="button" class="mode-tab mode-tab-active">网页模拟</button>
+        <button id="mode-phone" type="button" class="mode-tab">电话呼叫</button>
+      </div>
+      <div id="call-controls" class="call-controls">
+        <select id="scenario-select" aria-label="场景选择"></select>
+        <button id="start-btn" type="button" disabled>开始通话</button>
+        <button id="end-btn" type="button" disabled>挂断</button>
+      </div>
+      <div id="web-controls" class="mic-row">
+        <button id="mic-btn" type="button" class="mic-btn" disabled>按住说话</button>
+        <span id="status-line" class="status-line"></span>
+      </div>
+
+      <div id="phone-controls" hidden>
+        <details class="sip-config">
+          <summary>SIP 线路配置</summary>
+          <div class="sip-config-grid">
+            <label>服务器<input id="sip-server" type="text" autocomplete="off" /></label>
+            <label>端口<input id="sip-port" type="text" autocomplete="off" /></label>
+            <label>传输<select id="sip-transport"><option value="wss">wss</option><option value="ws">ws</option></select></label>
+            <label>域名<input id="sip-domain" type="text" autocomplete="off" /></label>
+            <label>分机号<input id="sip-user" type="text" autocomplete="off" /></label>
+            <label>密码<input id="sip-password" type="password" /></label>
+            <button id="sip-save" type="button">保存配置</button>
+          </div>
+        </details>
+        <div class="dial-row">
+          <input id="phone-number" type="text" placeholder="对方手机号或分机号" autocomplete="off" />
+          <button id="register-btn" type="button">注册线路</button>
+          <button id="dial-btn" type="button" disabled>拨打</button>
+          <button id="hangup-btn" type="button" class="danger" disabled>挂断电话</button>
+          <button id="monitor-mute-btn" type="button" disabled>监听：开</button>
+          <span id="phone-timer" class="status-line"></span>
+        </div>
+        <div class="mic-row">
+          <span id="phone-status" class="status-line">请先配置并注册 SIP 线路</span>
+        </div>
+      </div>
+
+      <div id="error-banner" class="error-banner" hidden></div>
+      <div id="outbound-banner" class="outbound-banner" hidden></div>
+
+      <div id="transcript" class="transcript" aria-live="polite"></div>
+
+      <div id="live-user" class="live-line" hidden>
+        <span class="live-label">识别中：</span>
+        <span id="live-user-text"></span>
+        <span id="live-user-translation" class="live-translation"></span>
+      </div>
+      <div id="live-agent" class="live-line" hidden>
+        <span class="live-label">客服：</span>
+        <span id="live-agent-text"></span>
+        <span id="live-agent-translation" class="live-translation"></span>
+      </div>
+
+      <div class="text-row">
+        <input id="text-input" type="text" placeholder="或直接输入文本…" autocomplete="off" />
+        <button id="text-send" type="button">发送</button>
+      </div>
+    </section>
+
+    <!-- 复盘面板 -->
+    <section id="review-panel" class="panel" hidden>
+      <div class="review-header">
+        <h2 id="review-title"></h2>
+        <button id="close-review" type="button">关闭</button>
+      </div>
+      <div id="review-turns" class="transcript"></div>
+      <div class="review-footer">
+        <span>评分：</span>
+        <span id="rating-row" class="rating-row"></span>
+        <a id="export-link" href="#" download>导出 JSON</a>
+        <button id="delete-btn" type="button" class="danger">删除会话</button>
+      </div>
+    </section>
+
+    <!-- 历史会话 -->
+    <section class="panel">
+      <h2>历史会话</h2>
+      <ul id="history-list" class="history-list"></ul>
+    </section>
+  </main>
+
+  <script src="/static/vendor/jssip-3.10.0.min.js"></script>
+  <script type="module" src="/static/app.js?v=10"></script>
+</body>
+</html>

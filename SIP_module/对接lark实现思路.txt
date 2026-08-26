@@ -1,0 +1,85 @@
+let ua = null;
+let audioContext = null;
+let localProcessedStream = null; // 处理后的上行流（给LARK）
+let pc = null; // JsSIP内部PeerConnection引用
+
+// ========== 1.初始化WebAudio，做音频处理链路 ==========
+async function initAudioProcess() {
+  audioContext = new AudioContext();
+  // 1.获取原始麦克风
+  const originStream = await navigator.mediaDevices.getUserMedia({audio:true});
+
+  // 原始麦克风输入节点
+  const source = audioContext.createMediaStreamSource(originStream);
+
+  // --------------------------
+  // 这里插入你的处理逻辑：AudioWorklet / filter / 转译处理
+  // 例如加载AudioWorkletProcessor做实时音频转译、降噪
+  // --------------------------
+  const destination = audioContext.createMediaStreamDestination();
+
+  // 假设处理后输出到destination
+  source.connect(destination);
+
+  // ✅ localProcessedStream：交给JsSIP，发给LARK的流（已经处理完毕）
+  localProcessedStream = destination.stream;
+}
+
+// ========== 配置，自定义rtcMediaStreamFactory ==========
+const socket = new JsSIP.WebSocketInterface('wss://lark‑ip/ws');
+ua = new JsSIP.UA({
+  sockets: [socket],
+  uri: '11001@dnlark.ocssaas.com',
+  password: '1234',
+  display_name: 'soft‑client',
+  register: true,
+
+  // 核心：自定义媒体流工厂，不再内部调用getUserMedia
+  rtcMediaStreamFactory: async () => {
+    await initAudioProcess();
+    // 返回处理完成后的流，JsSIP把这个流添加到PeerConnection
+    return localProcessedStream;
+  },
+
+  // 关闭JsSIP自动播放远端音频，我们自己处理
+  rtcMediaStream: {
+    audio: false
+  }
+});
+
+// 监听会话建立事件
+ua.on('newRTCSession', (e)=>{
+  const session = e.session;
+  // 获取内部PeerConnection
+  pc = session.connection;
+
+  // ===== 处理LARK返回的远端音频（下行链路）=====
+  pc.ontrack = async (event) => {
+    if(event.track.kind !== 'audio') return;
+    const remoteTrack = event.track;
+
+    // 远端原始音频流
+    const remoteStream = new MediaStream([remoteTrack]);
+
+    // 将LARK过来的音频送入WebAudio做转译处理
+    const remoteSource = audioContext.createMediaStreamSource(remoteStream);
+
+    // ----------------------
+    // 远端音频处理逻辑在这里：转译、降噪等
+    // ----------------------
+
+    // 输出到扬声器
+    const speakerDest = audioContext.destination;
+    remoteSource.connect(speakerDest);
+  };
+});
+
+ua.start();
+
+// 发起呼叫
+document.querySelector('#callBtn').onclick = ()=>{
+  ua.call('XXXXXXXX', {
+    mediaConstraints: {audio:true, video:false},
+    rtcOfferConstraints: {offerToReceiveAudio:1, offerToReceiveVideo:0}
+  });
+}

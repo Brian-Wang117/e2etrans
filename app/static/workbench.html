@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI 外呼工作台</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/static/styles.css?v=5" />
+  <style>
+    .wb-main { max-width: 1080px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .wb-statusbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .wb-lamp { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+    .wb-lamp .dot { width: 10px; height: 10px; border-radius: 50%; background: #999; display: inline-block; }
+    .wb-lamp.dot-ok .dot { background: #3fb950; }
+    .wb-lamp.dot-warn .dot { background: #d29922; }
+    .wb-lamp.dot-busy .dot { background: #58a6ff; }
+    .wb-lamp.dot-err .dot { background: #f85149; }
+    .wb-note { font-size: 12px; opacity: 0.8; }
+    .wb-batch-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .wb-progress { font-size: 13px; }
+    .wb-progressbar { height: 8px; background: #30363d; border-radius: 4px; overflow: hidden; min-width: 160px; }
+    .wb-progressbar .fill { height: 100%; background: #3fb950; width: 0%; transition: width 0.3s; }
+    .wb-current { font-size: 13px; margin-top: 6px; min-height: 18px; }
+    .wb-preview { border: 1px solid #30363d; border-radius: 6px; padding: 10px; margin-top: 8px; font-size: 13px; }
+    .wb-preview table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .wb-preview th, .wb-preview td, .wb-table th, .wb-table td { border: 1px solid #30363d; padding: 4px 8px; text-align: left; font-size: 12px; }
+    .wb-preview .preview-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    .wb-table { width: 100%; border-collapse: collapse; }
+    .wb-table tbody tr { cursor: pointer; }
+    .wb-table tbody tr.row-active { outline: 1px solid #58a6ff; }
+    .wb-table tbody tr:hover { background: rgba(88, 166, 255, 0.08); }
+    .wb-status-待呼叫 { color: #8b949e; }
+    .wb-status-进行中 { color: #58a6ff; }
+    .wb-status-已完成 { color: #3fb950; }
+    .wb-status-失败 { color: #f85149; }
+    .wb-transcript-row td { background: rgba(0,0,0,0.15); }
+    .wb-transcript { max-height: 320px; overflow-y: auto; padding: 8px; }
+    .wb-pager { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; }
+    .wb-error { color: #f85149; font-size: 13px; min-height: 18px; margin-top: 6px; }
+    .wb-hidden-file { display: none; }
+    .clone-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; font-size: 13px; }
+    .clone-grid label { display: flex; flex-direction: column; gap: 4px; }
+    .clone-grid input, .clone-grid select { width: 100%; }
+    .clone-text { width: 100%; min-height: 96px; resize: vertical; font-size: 13px; line-height: 1.6; }
+    .clone-record-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+    .clone-record-row .wb-progressbar { flex: 1; min-width: 140px; }
+    #clone-status { font-size: 13px; min-height: 18px; }
+    .clone-voice-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #30363d; }
+    .clone-voice-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>AI 外呼工作台</h1>
+    <a href="/templates" class="badge" style="text-decoration: none;">外呼模板管理</a>
+    <span id="wb-ws-badge" class="badge">工作台连接中…</span>
+  </header>
+
+  <main class="wb-main">
+    <!-- 线路与桥接状态条 -->
+    <section class="panel">
+      <div class="wb-statusbar">
+        <span id="bridge-lamp" class="wb-lamp"><span class="dot"></span><span id="bridge-lamp-text">桥接未注册</span></span>
+        <span id="batch-state" class="wb-lamp"><span class="dot"></span><span id="batch-state-text">批次空闲</span></span>
+        <span class="wb-note">首次打开需人工点一次“注册线路”（浏览器安全策略要求用户手势解锁音频），之后全程自动。</span>
+      </div>
+      <details class="sip-config">
+        <summary>SIP 线路配置</summary>
+        <div class="sip-config-grid">
+          <label>服务器<input id="sip-server" type="text" autocomplete="off" /></label>
+          <label>端口<input id="sip-port" type="text" autocomplete="off" /></label>
+          <label>传输<select id="sip-transport"><option value="wss">wss</option><option value="ws">ws</option></select></label>
+          <label>域名<input id="sip-domain" type="text" autocomplete="off" /></label>
+          <label>分机号<input id="sip-user" type="text" autocomplete="off" /></label>
+          <label>密码<input id="sip-password" type="password" /></label>
+          <button id="sip-save" type="button">保存配置</button>
+        </div>
+      </details>
+      <div class="dial-row">
+        <button id="register-btn" type="button">注册线路</button>
+        <span id="sip-status" class="status-line">请先配置并注册 SIP 线路</span>
+      </div>
+    </section>
+
+    <!-- 批次操作区 -->
+    <section class="panel">
+      <h2>批量外呼</h2>
+      <div class="wb-batch-actions">
+        <input id="import-file" type="file" accept=".csv,.xlsx,.xls" class="wb-hidden-file" />
+        <button id="upload-btn" type="button">上传清单（CSV/Excel）</button>
+        <button id="start-btn" type="button" disabled>开始批量</button>
+        <button id="stop-btn" type="button" class="danger" disabled>停止</button>
+        <button id="export-btn" type="button" disabled>导出清单</button>
+        <div class="wb-progress">
+          <span id="progress-text">尚未导入批次</span>
+          <div class="wb-progressbar"><div id="progress-fill" class="fill"></div></div>
+        </div>
+      </div>
+      <div id="current-line" class="wb-current"></div>
+      <div id="preview-card" class="wb-preview" hidden>
+        <div>
+          批次 <span id="preview-batch-id"></span> · 有效 <span id="preview-total"></span> 人
+          <span id="preview-invalid"></span>
+        </div>
+        <div>
+          电话列：
+          <select id="phone-column-select" aria-label="电话列选择"></select>
+        </div>
+        <table>
+          <thead id="preview-head"></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+        <div class="preview-foot">
+          <button id="confirm-btn" type="button">确认导入</button>
+        </div>
+      </div>
+      <div id="wb-error" class="wb-error"></div>
+    </section>
+
+    <!-- 音色复刻与选择 -->
+    <section class="panel">
+      <h2>音色复刻与选择</h2>
+      <div class="wb-note">对照下方文本朗读约 45 秒，生成真人客服的复刻音色；选定后整批外呼统一使用该音色（不再按客户性别切换）。</div>
+      <div class="clone-grid" style="margin-top: 8px;">
+        <label>复刻槽位<select id="clone-slot"></select></label>
+        <label>音色名称（备注）<input id="clone-name" type="text" placeholder="如：客服小张" autocomplete="off" /></label>
+        <label>本次外呼音色
+          <select id="speaker-select"></select>
+        </label>
+      </div>
+      <textarea id="clone-text" class="clone-text" readonly aria-label="采样朗读文本"></textarea>
+      <div class="clone-record-row">
+        <button id="clone-record-btn" type="button">开始采样（45 秒）</button>
+        <div class="wb-progressbar"><div id="clone-progress-fill" class="fill"></div></div>
+        <span id="clone-status"></span>
+      </div>
+      <div id="clone-voice-list" style="margin-top: 8px;"></div>
+    </section>
+
+    <!-- 客户状态表 -->
+    <section class="panel">
+      <h2>客户状态</h2>
+      <table class="wb-table">
+        <thead>
+          <tr>
+            <th>行号</th><th>姓名</th><th>电话</th><th>状态</th><th>时长</th><th>结果</th><th>原因</th>
+          </tr>
+        </thead>
+        <tbody id="customer-body"></tbody>
+      </table>
+      <div class="wb-pager">
+        <button id="prev-page" type="button" disabled>上一页</button>
+        <span id="page-info">第 1 页</span>
+        <button id="next-page" type="button" disabled>下一页</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/vendor/jssip-3.10.0.min.js"></script>
+  <script type="module" src="/static/workbench.js?v=9"></script>
+</body>
+</html>

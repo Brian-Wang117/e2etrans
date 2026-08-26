@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>外呼模板管理</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/static/styles.css?v=5" />
+  <style>
+    .tp-main { max-width: 1080px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .tp-note { font-size: 12px; opacity: 0.8; }
+    .tp-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    .tp-table { width: 100%; border-collapse: collapse; }
+    .tp-table th, .tp-table td { border: 1px solid #30363d; padding: 6px 8px; text-align: left; font-size: 13px; }
+    .tp-default-badge { display: inline-block; padding: 1px 8px; border-radius: 10px; background: rgba(63, 185, 80, 0.15); color: #3fb950; font-size: 12px; }
+    .tp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tp-actions button { font-size: 12px; padding: 2px 8px; }
+    .tp-form { display: flex; flex-direction: column; gap: 10px; }
+    .tp-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+    .tp-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+    .tp-form input, .tp-form select, .tp-form textarea { width: 100%; box-sizing: border-box; }
+    .tp-form textarea { min-height: 72px; resize: vertical; line-height: 1.6; }
+    .tp-hint { font-size: 12px; opacity: 0.7; }
+    .tp-scripts { width: 100%; border-collapse: collapse; }
+    .tp-scripts th, .tp-scripts td { border: 1px solid #30363d; padding: 4px 6px; font-size: 12px; vertical-align: top; }
+    .tp-scripts input, .tp-scripts select { width: 100%; box-sizing: border-box; font-size: 12px; }
+    .tp-scripts textarea { width: 100%; box-sizing: border-box; min-height: 52px; resize: vertical; font-size: 12px; }
+    .tp-scripts tr.row-error { outline: 1px solid #f85149; }
+    .tp-script-count { font-size: 12px; margin-left: 4px; opacity: 0.8; }
+    .tp-error { color: #f85149; font-size: 13px; min-height: 18px; white-space: pre-line; }
+    .tp-status { color: #3fb950; font-size: 13px; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>外呼模板管理</h1>
+    <a href="/workbench" class="badge" style="text-decoration: none;">返回工作台</a>
+  </header>
+
+  <main class="tp-main">
+    <section class="panel">
+      <div class="tp-toolbar">
+        <h2 style="margin: 0;">模板列表</h2>
+        <button id="new-btn" type="button">新建模板</button>
+      </div>
+      <div class="tp-note">
+        模板在批次确认时生效：未选择时使用默认模板；批量外呼的业务背景、开场白、固定话术与 AI 人设均来自所选模板。
+        内置合规话术（身份否认 / 投诉免打扰 / 听不清）始终生效，不可在此删除。
+      </div>
+      <table class="tp-table">
+        <thead>
+          <tr><th>模板名</th><th>公司名称</th><th>默认</th><th>话术数</th><th>操作</th></tr>
+        </thead>
+        <tbody id="template-body"></tbody>
+      </table>
+    </section>
+
+    <section class="panel" id="editor-panel" hidden>
+      <h2 id="editor-title">新建模板</h2>
+      <div class="tp-form">
+        <div class="tp-form-row">
+          <label>模板名（必填，唯一）<input id="f-name" type="text" autocomplete="off" /></label>
+          <label>公司名称（必填）<input id="f-company" type="text" autocomplete="off" /></label>
+        </div>
+        <label>业务背景与卖点
+          <textarea id="f-background" placeholder="AI 通话中用于自我介绍与产品介绍的业务背景，越具体越好"></textarea>
+        </label>
+        <label>开场白模板
+          <textarea id="f-opening" placeholder="留空则按客户姓名自动生成；可用占位符 {name}（客户姓名）、{title}（称呼）"></textarea>
+          <span class="tp-hint">示例：您好 {title}，我是{公司名称}的客服……（占位符：{name} / {title}）</span>
+        </label>
+        <div class="tp-form-row">
+          <label>AI 名字（≤20 字，留空用系统默认）<input id="f-botname" type="text" maxlength="20" autocomplete="off" /></label>
+          <label>语气风格（留空用系统默认）<input id="f-style" type="text" autocomplete="off" placeholder="如：亲切自然、口语化" /></label>
+        </div>
+        <label style="flex-direction: row; align-items: center; gap: 8px;">
+          <input id="f-default" type="checkbox" style="width: auto;" />
+          设为默认模板（批次确认时未选择则使用它）
+        </label>
+      </div>
+
+      <h3>固定话术<span id="script-count" class="tp-script-count"></span></h3>
+      <div class="tp-note" style="margin-bottom: 6px;">
+        回复 20-40 字；勾选“结束通话”时回复必须含“再见”；触发词与回复不得写死价格；优先级 0-10，数字越大越优先。
+      </div>
+      <table class="tp-scripts">
+        <thead>
+          <tr>
+            <th style="width: 110px;">类别</th>
+            <th style="width: 180px;">触发词（逗号分隔）</th>
+            <th>AI 回复</th>
+            <th style="width: 70px;">结束通话</th>
+            <th style="width: 100px;">结论</th>
+            <th style="width: 60px;">优先级</th>
+            <th style="width: 60px;"></th>
+          </tr>
+        </thead>
+        <tbody id="script-body"></tbody>
+      </table>
+      <div class="tp-toolbar" style="margin-top: 8px;">
+        <button id="add-script-btn" type="button">添加话术</button>
+        <button id="save-btn" type="button">保存模板</button>
+        <button id="cancel-btn" type="button">取消</button>
+        <span id="editor-status" class="tp-status"></span>
+      </div>
+      <div id="editor-error" class="tp-error"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/static/templates.js?v=1"></script>
+</body>
+</html>
