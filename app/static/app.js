@@ -1,5 +1,5 @@
-// UI orchestration: call lifecycle, push-to-talk capture, subtitle rendering
-// and the post-call review panel. All event text is rendered via textContent.
+// UI orchestration: phone-call lifecycle, subtitle rendering and the
+// post-call review panel. All event text is rendered via textContent.
 
 import { RealtimeClient } from "./realtime.js";
 import { RealtimeAudio } from "./realtime-audio.js?v=2";
@@ -21,10 +21,6 @@ const $ = (id) => document.getElementById(id);
 
 const els = {
   healthBadge: $("health-badge"),
-  modeWeb: $("mode-web"),
-  modePhone: $("mode-phone"),
-  callControls: $("call-controls"),
-  webControls: $("web-controls"),
   phoneControls: $("phone-controls"),
   phoneStatus: $("phone-status"),
   phoneTimer: $("phone-timer"),
@@ -41,10 +37,6 @@ const els = {
   hangupBtn: $("hangup-btn"),
   monitorMuteBtn: $("monitor-mute-btn"),
   scenarioSelect: $("scenario-select"),
-  startBtn: $("start-btn"),
-  endBtn: $("end-btn"),
-  micBtn: $("mic-btn"),
-  statusLine: $("status-line"),
   errorBanner: $("error-banner"),
   outboundBanner: $("outbound-banner"),
   transcript: $("transcript"),
@@ -70,14 +62,11 @@ let uiState = createInitialState();
 let client = null;
 let audio = null;
 let inCall = false;
-let recording = false;
 let activeResponseId = null;
-let micAvailable = true;
 let currentSessionId = null;
 const renderedTurnIds = new Set();
 
-// -- phone mode state ---------------------------------------------------------
-let mode = "web"; // "web" | "phone"
+// -- phone state ---------------------------------------------------------
 let sip = null;
 let sipRegistered = false;
 let monitorMuted = false;
@@ -132,10 +121,6 @@ function showError(message) {
 function showOutboundBanner(message) {
   els.outboundBanner.textContent = message || "";
   els.outboundBanner.hidden = !message;
-}
-
-function setStatus(text) {
-  els.statusLine.textContent = text;
 }
 
 function setPhoneStatus(text) {
@@ -220,11 +205,11 @@ async function checkHealth() {
       ? "豆包端到端语音已就绪"
       : "实时语音未启用（REALTIME_PROVIDER）";
     els.healthBadge.classList.toggle("badge-ok", realtime);
-    els.startBtn.disabled = !realtime;
-    setStatus(health.subtitles === "enabled" ? "双语字幕：开" : "双语字幕：关");
+    if (!realtime) {
+      showError("实时语音未启用，无法拨打电话会话");
+    }
   } catch (error) {
     els.healthBadge.textContent = "服务不可用";
-    els.startBtn.disabled = true;
     showError(`健康检查失败：${error.message}`);
   }
 }
@@ -253,72 +238,12 @@ function resetCallUi() {
   activeResponseId = null;
 }
 
-async function startCall() {
-  showError("");
-  showOutboundBanner("");
-  resetCallUi();
-  els.startBtn.disabled = true;
-  try {
-    audio = new RealtimeAudio({
-      onChunk: (bytes) => {
-        if (recording) client?.sendAudio(bytes);
-      },
-      onPlaybackError: () => setStatus("播放队列已满，已丢弃音频"),
-    });
-    await audio.initializeOutput();
-    try {
-      await audio.prepareCapture();
-    } catch (error) {
-      micAvailable = false;
-      setStatus("麦克风不可用，可继续使用文本输入");
-    }
-
-    client = new RealtimeClient({
-      url: `${wsScheme()}://${location.host}${APP_BASE}/ws/realtime`,
-      onEvent: applyEvent,
-      onState: (phase) => {
-        if (phase === "disconnected" && inCall) {
-          showError("连接已断开");
-          void finishCall();
-        }
-      },
-    });
-    await client.connect();
-    const scenarioId = els.scenarioSelect.value;
-    client.startSession(scenarioId);
-    inCall = true;
-    currentSessionId = null;
-    setStatus("正在建立会话…");
-  } catch (error) {
-    showError(`启动失败：${error.message}`);
-    els.startBtn.disabled = false;
-    await teardownCall();
-  }
-}
-
-async function endCall() {
-  if (mode === "phone") {
-    hangupPhone();
-    return;
-  }
-  if (!inCall) return;
-  els.endBtn.disabled = true;
-  recording = false;
-  try {
-    await client?.endSession({ timeoutMs: 2000 });
-  } finally {
-    // session.ended event (or timeout) drives finishCall; ensure cleanup runs
-    await finishCall();
-  }
-}
-
 async function finishCall() {
   if (!inCall) return;
   inCall = false;
   const sessionId = client?.sessionId || currentSessionId;
   currentSessionId = sessionId;
   await teardownCall();
-  setStatus("通话已结束");
   if (sessionId) {
     await openReview(sessionId);
   }
@@ -326,7 +251,6 @@ async function finishCall() {
 }
 
 async function teardownCall() {
-  recording = false;
   if (client) {
     client.close();
     client = null;
@@ -335,37 +259,13 @@ async function teardownCall() {
     await audio.stop();
     audio = null;
   }
-  els.micBtn.disabled = true;
-  els.micBtn.textContent = "按住说话";
-  els.endBtn.disabled = true;
-  els.startBtn.disabled = els.healthBadge.textContent !== "豆包端到端语音已就绪";
   els.scenarioSelect.disabled = false;
   els.liveUser.hidden = true;
   els.liveAgent.hidden = true;
-  els.modeWeb.disabled = false;
-  els.modePhone.disabled = false;
   resetPhoneUi();
 }
 
 // -- phone mode ---------------------------------------------------------------
-
-function setMode(next) {
-  if (next === mode || inCall || sip?.inCall) return;
-  mode = next;
-  showError("");
-  els.modeWeb.classList.toggle("mode-tab-active", mode === "web");
-  els.modePhone.classList.toggle("mode-tab-active", mode === "phone");
-  els.callControls.hidden = mode !== "web";
-  els.webControls.hidden = mode !== "web";
-  els.phoneControls.hidden = mode !== "phone";
-  if (mode === "phone") {
-    setPhoneStatus(
-      sipRegistered ? "SIP 线路已注册，可以拨打" : "请先配置并注册 SIP 线路"
-    );
-  } else {
-    setStatus("");
-  }
-}
 
 function readSipForm() {
   return {
@@ -442,8 +342,6 @@ async function dialPhone() {
   resetCallUi();
   els.dialBtn.disabled = true;
   els.registerBtn.disabled = true;
-  els.modeWeb.disabled = true;
-  els.modePhone.disabled = true;
   try {
     audio = new RealtimeAudio({
       // Continuous streaming: every captured chunk goes upstream; Doubao's
@@ -462,8 +360,6 @@ async function dialPhone() {
     els.hangupBtn.disabled = false;
   } catch (error) {
     showError(`拨打失败：${error.message}`);
-    els.modeWeb.disabled = false;
-    els.modePhone.disabled = false;
     resetPhoneUi();
     await teardownCall();
   }
@@ -559,47 +455,12 @@ function resetPhoneUi() {
   els.dialBtn.disabled = !sipRegistered;
 }
 
-// -- push-to-talk ------------------------------------------------------------
-
-async function toggleMic() {
-  if (!inCall || !micAvailable || !audio?.captureAvailable) return;
-  if (!recording) {
-    // Interrupt any in-flight response before opening the microphone.
-    if (audio.hasPendingPlayback) {
-      audio.cancelPlayback();
-      if (activeResponseId) client?.cancelResponse(activeResponseId);
-    }
-    recording = audio.beginCapture();
-    if (recording) {
-      els.micBtn.textContent = "结束说话";
-      els.micBtn.classList.add("mic-active");
-      setStatus("正在收音…");
-    }
-  } else {
-    recording = false;
-    els.micBtn.disabled = true;
-    try {
-      await audio.endCapture({ flush: true });
-    } finally {
-      client?.commitAudio();
-      els.micBtn.textContent = "按住说话";
-      els.micBtn.classList.remove("mic-active");
-      els.micBtn.disabled = !inCall;
-      setStatus("已提交语音，等待识别…");
-    }
-  }
-}
+// -- session events -----------------------------------------------------------
 
 function onSessionReady(event) {
   currentSessionId = event.session_id;
-  els.endBtn.disabled = false;
   els.scenarioSelect.disabled = true;
-  if (mode === "phone") {
-    setPhoneStatus("AI 会话已就绪，对话进行中");
-  } else {
-    els.micBtn.disabled = !micAvailable || !audio?.captureAvailable;
-    setStatus("会话已就绪，点击麦克风开始说话");
-  }
+  setPhoneStatus("AI 会话已就绪，对话进行中");
 }
 
 // -- text fallback -----------------------------------------------------------
@@ -699,11 +560,6 @@ applyEvent = (event) => {
   }
 };
 
-els.startBtn.addEventListener("click", () => void startCall());
-els.endBtn.addEventListener("click", () => void endCall());
-els.micBtn.addEventListener("click", () => void toggleMic());
-els.modeWeb.addEventListener("click", () => setMode("web"));
-els.modePhone.addEventListener("click", () => setMode("phone"));
 els.registerBtn.addEventListener("click", () => void registerSip());
 els.dialBtn.addEventListener("click", () => void dialPhone());
 els.hangupBtn.addEventListener("click", hangupPhone);

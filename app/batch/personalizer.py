@@ -19,6 +19,8 @@ import httpx
 
 NAME_COLUMN_HINTS = ("姓名", "名字", "客户姓名", "称呼", "name", "customer_name")
 GENDER_COLUMN_HINTS = ("性别", "gender", "sex")
+BACKGROUND_COLUMN_HINTS = ("客户背景", "背景", "background")
+TASK_COLUMN_HINTS = ("外呼任务", "任务", "task")
 FALLBACK_OPENING = "您好，请问是本机主人吗？"
 MAX_BACKGROUND_CHARS = 300
 CACHE_KEY = "_personalized_background"
@@ -82,8 +84,33 @@ def build_opening_text(raw_data: dict[str, object]) -> str:
     name = extract_name(raw_data)
     if not name:
         return FALLBACK_OPENING
+    if name.endswith("女士") or name.endswith("先生"):
+        # The name cell already carries the honorific (e.g. 王女士).
+        return f"您好，请问是{name}吗？"
     title = extract_title(raw_data)
     return f"您好，请问是{name}{title}吗？"
+
+
+def extract_background(raw_data: dict[str, object]) -> str:
+    """Background supplied by the imported list itself (e.g. 客户背景)."""
+    return _find_value(raw_data, BACKGROUND_COLUMN_HINTS)
+
+
+def extract_task(raw_data: dict[str, object]) -> str:
+    """Call objective supplied by the imported list itself (e.g. 外呼任务)."""
+    return _find_value(raw_data, TASK_COLUMN_HINTS)
+
+
+def build_provided_background(raw_data: dict[str, object]) -> str:
+    """Fold the list-provided background (and task, when present) into the
+    agent-facing text. Returns '' when the list carries no background."""
+    background = extract_background(raw_data)
+    if not background:
+        return ""
+    task = extract_task(raw_data)
+    if task:
+        return f"外呼任务：{task}\n客户背景：{background}"[:MAX_BACKGROUND_CHARS]
+    return background[:MAX_BACKGROUND_CHARS]
 
 
 class Personalizer:
@@ -116,6 +143,15 @@ class Personalizer:
             return Personalization(
                 opening_text=opening_text,
                 business_background=cached,
+                generated=False,
+            )
+        provided = build_provided_background(raw_data)
+        if provided:
+            # The imported list already carries a curated background; use it
+            # directly instead of spending an LLM call per customer.
+            return Personalization(
+                opening_text=opening_text,
+                business_background=provided,
                 generated=False,
             )
         try:

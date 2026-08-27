@@ -10,6 +10,7 @@ from app.batch.personalizer import (
     FALLBACK_OPENING,
     Personalizer,
     build_opening_text,
+    build_provided_background,
     extract_name,
     extract_title,
 )
@@ -52,6 +53,11 @@ def test_opening_without_name_falls_back():
     assert build_opening_text({"产品": "扫地机"}) == FALLBACK_OPENING
     assert build_opening_text({}) == FALLBACK_OPENING
     assert build_opening_text({"姓名": ""}) == FALLBACK_OPENING
+
+
+def test_opening_skips_title_when_name_already_carries_it():
+    assert build_opening_text({"姓名": "王女士", "性别": "女"}) == "您好，请问是王女士吗？"
+    assert build_opening_text({"姓名": "李先生", "性别": "男"}) == "您好，请问是李先生吗？"
 
 
 def test_name_candidates_follow_hint_order():
@@ -152,3 +158,46 @@ async def test_internal_keys_never_leak_into_prompt():
     personalizer = make_personalizer(handler)
     await personalizer.personalize({"姓名": "王芳", "_secret": "机密缓存"})
     assert "机密缓存" not in seen["content"]
+
+
+# -- list-provided background (e.g. 客户背景 column) ---------------------------
+
+
+def test_provided_background_folds_task_and_background():
+    raw = {
+        "姓名": "王女士",
+        "外呼任务": "快开学了，询问是否购买五年级的英语课程",
+        "客户背景": "孩子之前购买过数学课程，而且续过费",
+    }
+    assert build_provided_background(raw) == (
+        "外呼任务：快开学了，询问是否购买五年级的英语课程\n"
+        "客户背景：孩子之前购买过数学课程，而且续过费"
+    )
+
+
+def test_provided_background_without_task_and_without_column():
+    assert build_provided_background({"客户背景": "新客户"}) == "新客户"
+    assert build_provided_background({"姓名": "王芳"}) == ""
+    assert build_provided_background({"客户背景": ""}) == ""
+    assert build_provided_background({}) == ""
+
+
+async def test_personalize_uses_list_background_without_http_call():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return chat_response("不该出现")
+
+    personalizer = make_personalizer(handler)
+    raw = {
+        "姓名": "王女士",
+        "外呼任务": "问卷调查",
+        "客户背景": "客户购买的宝马汽车刚做完维修",
+    }
+    result = await personalizer.personalize(raw)
+    assert result.generated is False
+    assert "问卷调查" in result.business_background
+    assert "宝马汽车" in result.business_background
+    assert result.opening_text == "您好，请问是王女士吗？"
+    assert calls == []

@@ -17,21 +17,11 @@
   <main class="layout">
     <!-- 通话面板 -->
     <section class="panel call-panel">
-      <div class="mode-tabs">
-        <button id="mode-web" type="button" class="mode-tab mode-tab-active">网页模拟</button>
-        <button id="mode-phone" type="button" class="mode-tab">电话呼叫</button>
-      </div>
       <div id="call-controls" class="call-controls">
         <select id="scenario-select" aria-label="场景选择"></select>
-        <button id="start-btn" type="button" disabled>开始通话</button>
-        <button id="end-btn" type="button" disabled>挂断</button>
-      </div>
-      <div id="web-controls" class="mic-row">
-        <button id="mic-btn" type="button" class="mic-btn" disabled>按住说话</button>
-        <span id="status-line" class="status-line"></span>
       </div>
 
-      <div id="phone-controls" hidden>
+      <div id="phone-controls">
         <details class="sip-config">
           <summary>SIP 线路配置</summary>
           <div class="sip-config-grid">
@@ -102,6 +92,6 @@
   </main>
 
   <script src="static/vendor/jssip-3.10.0.min.js"></script>
-  <script type="module" src="static/app.js?v=10"></script>
+  <script type="module" src="static/app.js?v=11"></script>
 </body>
 </html>
