@@ -1,0 +1,48 @@
+name: build-windows-exe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/tp-azure-web-login
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build exe
+        run: >
+          pyinstaller --noconfirm --onefile --console
+          --name e2etrans
+          --add-data "app/static;app/static"
+          --collect-submodules app
+          run.py
+
+      - name: Smoke test (exe starts and serves the index page)
+        run: |
+          Start-Process -FilePath dist\e2etrans.exe -WorkingDirectory dist -PassThru | Out-Null
+          Start-Sleep -Seconds 12
+          $code = (Invoke-WebRequest -Uri "http://127.0.0.1:8765/" -UseBasicParsing -TimeoutSec 10).StatusCode
+          if ($code -ne 200) { throw "exe smoke test failed: HTTP $code" }
+          Get-Process e2etrans -ErrorAction SilentlyContinue | Stop-Process -Force
+        shell: pwsh
+        env:
+          ENABLE_UNIFIED_AUTH: "false"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e2etrans-windows-exe
+          path: dist/e2etrans.exe

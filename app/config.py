@@ -10,12 +10,34 @@ from __future__ import annotations
 import logging
 import math
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+def _project_root() -> Path:
+    """Root used for runtime files (.env / .env.test / data/).
+
+    Frozen (PyInstaller exe): the directory next to the executable, so
+    deployment files sit beside the exe. Otherwise: the repository root.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[1]
+
+
+def _bundle_root() -> Path:
+    """Root of bundled resources (static files). Inside a PyInstaller bundle
+    this is the temporary extraction dir; otherwise the repository root."""
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+    return Path(__file__).resolve().parents[1]
+
+
+PROJECT_ROOT = _project_root()
+BUNDLE_ROOT = _bundle_root()
 
 
 def load_env_file(root: Path = PROJECT_ROOT) -> None:

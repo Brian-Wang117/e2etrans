@@ -25,7 +25,7 @@ from app.batch.import_parser import (
 )
 from app.batch.personalizer import CACHE_KEY, Personalizer
 from app.batch.runner import BatchRunner, BatchRunnerError
-from app.config import PROJECT_ROOT, Settings, settings_from_env
+from app.config import BUNDLE_ROOT, Settings, settings_from_env
 from app.outbound.adjudicator import OutboundAdjudicator
 from app.outbound.persona import (
     DEFAULT_OPENING_TEXT,
@@ -749,7 +749,7 @@ def create_app(
 
     # -- static UI --------------------------------------------------------------
 
-    static_dir = PROJECT_ROOT / "app" / "static"
+    static_dir = BUNDLE_ROOT / "app" / "static"
     static_app = StaticFiles(directory=static_dir)
     _static_file_response = static_app.file_response
 
