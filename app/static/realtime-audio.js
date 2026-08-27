@@ -10,7 +10,9 @@ export class RealtimeAudio {
     AudioContextClass = globalThis.AudioContext,
     AudioWorkletNodeClass = globalThis.AudioWorkletNode,
     mediaDevices = globalThis.navigator?.mediaDevices,
-    workletUrl = "/static/pcm-worklet.js",
+    // Served under a URL prefix (e.g. nginx /v2): APP_BASE is injected by
+    // the server into every page, keep the worklet resolvable there too.
+    workletUrl = `${globalThis.window?.APP_BASE || ""}/static/pcm-worklet.js`,
   }) {
     this.onChunk = onChunk;
     this.onPlaybackError = onPlaybackError;
