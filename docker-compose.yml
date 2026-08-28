@@ -1,0 +1,17 @@
+services:
+  e2etrans:
+    build: .
+    image: e2etrans:latest
+    container_name: e2etrans
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      # 容器内必须监听 0.0.0.0 才能被端口映射访问（覆盖 .env.test 的 127.0.0.1）
+      HOST: 0.0.0.0
+    volumes:
+      # 密钥与配置（只读挂载，不随镜像分发）
+      - ./.env:/app/.env:ro
+      - ./.env.test:/app/.env.test:ro
+      # SQLite 数据持久化
+      - ./data:/app/data
