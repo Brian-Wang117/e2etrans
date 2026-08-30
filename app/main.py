@@ -57,16 +57,16 @@ for extension, media_type in (
 
 SCENARIOS: dict[str, str] = {
     "product_intro": (
-        "您好！这里是客服专员，就您最近的订单给您做个简短回访，"
-        "请问您现在方便接听电话吗？"
+        "Hello! This is the English customer care team calling about your "
+        "recent order. Do you have a minute to talk?"
     ),
     "delivery_confirm": (
-        "您好，这里是客服专员。本次来电是想跟您核对一下包裹的收货地址，"
-        "方便耽误您一分钟吗？"
+        "Hello, this is English customer care. I am calling to confirm the "
+        "delivery address for your package. Could you help me verify it?"
     ),
     "satisfaction_survey": (
-        "您好！这里是客服专员，想做一份非常简短的满意度调研，"
-        "只问三个小问题，可以吗？"
+        "Hello! This is English customer care with a very short satisfaction "
+        "survey. May I ask you three quick questions?"
     ),
     # Chinese outbound-marketing call; the real greeting is resolved per
     # session (opening_text payload / OUTBOUND_OPENING_TEXT / default).
@@ -225,10 +225,10 @@ def create_app(
     @app.get("/api/scenarios")
     async def scenarios() -> dict[str, list[dict[str, str]]]:
         labels = {
-            "product_intro": "产品回访",
-            "delivery_confirm": "快递地址确认",
-            "satisfaction_survey": "满意度调研",
-            OUTBOUND_SCENARIO: "外呼营销",
+            "product_intro": "产品回访（Product intro）",
+            "delivery_confirm": "快递地址确认（Delivery confirm）",
+            "satisfaction_survey": "满意度调研（Satisfaction survey）",
+            OUTBOUND_SCENARIO: "外呼营销（Outbound call）",
         }
         return {
             "scenarios": [
