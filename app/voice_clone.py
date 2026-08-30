@@ -170,7 +170,12 @@ class VoiceCloneRelay:
             ):
                 human = f"{human}（槽位 {speaker_id} 可能不属于当前 AppID）"
             logger.warning(
-                "voice clone relay rejected: code=%s message=%s", code, message
+                "voice clone relay rejected: code=%s message=%s http=%s appid=%s raw=%r",
+                code,
+                message,
+                response.status_code,
+                self._app_id,
+                response.text[:300],
             )
             raise VoiceCloneError(human, code=code)
         return payload
