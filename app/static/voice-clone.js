@@ -9,6 +9,13 @@ export const SELECTED_KEY = "doubao_selected_speaker";
 export const MODEL_TYPE_ICL_V2 = 4;
 export const CLONE_SLOTS = ["S_heWZZwa62", "S_Ip5CTwa62", "S_HxRPesDd2"];
 
+// Already-trained voices provisioned outside the in-app sampling flow
+// (e.g. created in the Volcengine console). Shown in the speaker selector
+// without training; managed here instead of per-browser localStorage.
+export const READY_CLONED_VOICES = [
+  { speaker_id: "S_HxRPesDd2", name: "已就绪复刻音色", model_type: MODEL_TYPE_ICL_V2 },
+];
+
 const MIN_SAMPLE_SECONDS = 40;
 const STATUS_POLL_MS = 2000;
 const STATUS_TIMEOUT_MS = 120000;

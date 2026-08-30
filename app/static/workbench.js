@@ -10,11 +10,12 @@ import { RealtimeAudio } from "./realtime-audio.js";
 import { base64ToBytes } from "./pcm.js";
 import {
   CLONE_SLOTS,
+  READY_CLONED_VOICES,
   VoiceCloneStore,
   fetchCloneMeta,
   recordSample,
   uploadClone,
-} from "./voice-clone.js?v=10";
+} from "./voice-clone.js?v=11";
 
 const OUTBOUND_SCENARIO = "outbound_default";
 const PAGE_SIZE = 50;
@@ -951,13 +952,23 @@ function renderSpeakerSelector() {
   defaultOption.value = "";
   defaultOption.textContent = "默认（性别交叉音色）";
   els.speakerSelect.append(defaultOption);
-  for (const voice of cloneStore.getVoices()) {
+  // Ready-made voices first, then locally trained ones (de-duplicated).
+  const voices = [
+    ...READY_CLONED_VOICES,
+    ...cloneStore
+      .getVoices()
+      .filter(
+        (voice) =>
+          !READY_CLONED_VOICES.some((v) => v.speaker_id === voice.speaker_id),
+      ),
+  ];
+  for (const voice of voices) {
     const option = document.createElement("option");
     option.value = voice.speaker_id;
     option.textContent = `复刻 · ${voice.name}（${voice.speaker_id}）`;
     els.speakerSelect.append(option);
   }
-  els.speakerSelect.value = cloneStore.getVoices().some((v) => v.speaker_id === current)
+  els.speakerSelect.value = voices.some((v) => v.speaker_id === current)
     ? current
     : "";
 
