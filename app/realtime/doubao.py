@@ -21,7 +21,7 @@ from app.realtime import doubao_protocol as protocol
 
 logger = logging.getLogger(__name__)
 
-_LEGACY_BOT_NAME = "EN Customer Care"
+_LEGACY_BOT_NAME = "客服专员"
 
 
 class DoubaoUpstreamError(RuntimeError):
@@ -121,7 +121,7 @@ class DoubaoRealtimeClient:
         self._reader_task = asyncio.create_task(self._reader_loop())
         await self._handshake()
         if send_greeting:
-            await self.say_hello("Hello, this is the English customer care team.")
+            await self.say_hello("您好，这里是客服专员，很高兴为您服务。")
 
     async def _handshake(self) -> None:
         await self._send_event_and_wait(
@@ -163,16 +163,15 @@ class DoubaoRealtimeClient:
                     self.persona.system_role
                     if self.persona
                     else (
-                        "You are a professional outbound customer-service agent. "
-                        "Understand the user's Chinese speech, but always reply in "
-                        "English. Be concise, ask one question at a time, and never "
-                        "claim a real phone call."
+                        "你是一名专业的电话客服专员。请始终使用中文与客户"
+                        "交流；回复简洁，每次不超过两句话；一次只问一个"
+                        "问题；语气礼貌自然。"
                     )
                 ),
                 "speaking_style": (
                     self.persona.speaking_style
                     if self.persona
-                    else "Natural, calm, warm, and professional."
+                    else "自然、沉稳、亲切、专业。"
                 ),
                 "location": {"city": "北京"},
                 "extra": extra,
