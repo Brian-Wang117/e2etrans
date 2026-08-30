@@ -193,10 +193,10 @@ def _realtime_from_env(default_origins: tuple[str, ...]) -> RealtimeSettings:
         missing = next((name for name, value in values.items() if not value), None)
         if missing:
             raise ValueError(f"{missing} is required when REALTIME_PROVIDER is doubao")
-        if not str(values["DOUBAO_TTS_SPEAKER"]).startswith("en_"):
+        if not str(values["DOUBAO_TTS_SPEAKER"]).startswith("zh_"):
             logger.warning(
-                "DOUBAO_TTS_SPEAKER is not an 'en_' voice; English customer-care "
-                "playback requires an enabled English voice on the account"
+                "DOUBAO_TTS_SPEAKER is not a 'zh_' voice; the default dialogue "
+                "language is Chinese and expects a Chinese voice on the account"
             )
     subtitle_enabled = _env_bool("QWEN_SUBTITLE_ENABLED", False)
     qwen_key = os.getenv("DASHSCOPE_API_KEY") or None
