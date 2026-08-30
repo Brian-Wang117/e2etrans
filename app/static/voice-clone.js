@@ -7,7 +7,7 @@ import { RealtimeAudio } from "./realtime-audio.js";
 export const VOICES_KEY = "doubao_custom_voices";
 export const SELECTED_KEY = "doubao_selected_speaker";
 export const MODEL_TYPE_ICL_V2 = 4;
-export const CLONE_SLOTS = ["S_heWZZwa62", "S_Ip5CTwa62"];
+export const CLONE_SLOTS = ["S_heWZZwa62", "S_Ip5CTwa62", "S_HxRPesDd2"];
 
 const MIN_SAMPLE_SECONDS = 40;
 const STATUS_POLL_MS = 2000;

@@ -14,7 +14,7 @@ import {
   fetchCloneMeta,
   recordSample,
   uploadClone,
-} from "./voice-clone.js";
+} from "./voice-clone.js?v=10";
 
 const OUTBOUND_SCENARIO = "outbound_default";
 const PAGE_SIZE = 50;
